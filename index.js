@@ -1,63 +1,71 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 const app = express();
 const port = 3000;
 app.use(express.json());
 
-
-let users= [
+let users = [
   {
     id: "01",
     name: "m khan",
-    image: "path",
     session: "C4MA",
     email: "mkhan@gmail.com",
   },
   {
     id: "02",
     name: "ali",
-    image: "path",
     session: "C4MA",
     email: "ali@gmail.com",
   },
 ];
 
+const secretKey = "secretkey";
 
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization;
 
-app.get("/", (req, res) => {
+  if (!token) {
+    return res.send(" No token provided");
+  }
+  jwt.verify(token, secretKey, (err, decoded) => {
+    if (err) {
+      return res.send("Failed to authenticate token");
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
+app.get("/", verifyToken, (req, res) => {
   try {
-    res.status(200).json({ message: "data get succesflly", users });
+    res.status(200).json({ message: "Data retrieved successfully", users });
   } catch (error) {
-    res.status(400).json({ error: error });
+    res.status(400).json({ error: error.message });
   }
 });
-
 
 
 app.post("/", (req, res) => {
-  try {
-    let { id, name, session, email } = req.body;
-    const exist =users.find((user) => user.email === email);
-    if (!exist) {
-      const newEntry = {
-        id,
-        name,
-        session,
-        email,
-      };
-      users.push(newEntry);
-      res.status(200).json({ message: "suucssfully save data" });
-    } else {
-      res.status(500).json({ message: "user already exist" });
-    }
-  } catch (error) {
-    res.send(error);
+  const { id, name, session, email } = req.body;
+  const exist = users.find((user) => user.email === email);
+
+  if (!exist) {
+    const newEntry = { id, name, session, email };
+
+    
+    users.push(newEntry);
+
+  
+    const token = jwt.sign({ email }, secretKey, { expiresIn: "1h" }); 
+
+    res.status(200).json({ message: "Successfully saved data", token });
+  } else {
+    res.status(500).json({ message: "User already exists" });
   }
 });
 
-
-
 app.put("/:id", (req, res) => {
-  const userToUpdate =users.find((user) => user.id === req.params.id);
+  const userToUpdate = users.find((user) => user.id === req.params.id);
   if (!userToUpdate) {
     res.status(404).json({ message: "user not found" });
   } else {
@@ -70,10 +78,8 @@ app.put("/:id", (req, res) => {
   }
 });
 
-
-
 app.delete("/:id", (req, res) => {
-  const userindexdelete =users.findIndex((user) => user.id === req.params.id);
+  const userindexdelete = users.findIndex((user) => user.id === req.params.id);
   if (!userindexdelete) {
     res.status(404).json({ message: "user not found" });
   } else {
